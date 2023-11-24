@@ -1,5 +1,6 @@
 import math
 from flask import Flask, request, jsonify, g
+from urllib.parse import quote_plus
 from pymongo import MongoClient
 from geojson import Point
 from flask_cors import CORS 
@@ -15,9 +16,9 @@ CORS(app, resources={r"/api/*": {"origins": "http://localhost:4200"}})
 # Define the MongoDB client as a global variable
 client =  MongoClient('mongodb://localhost:27017/')
 
-def get_Lat_Long(zipcode):
-    print('making API call to Google for zipcode', zipcode)
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={zipcode}&key=AIzaSyASXpcjSKFL5Q50cxYcyNc-xRlHTrFp5EA"
+def get_Lat_Long(location_query):
+    print('making API call to Google for zipcode', location_query)
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location_query}&key=AIzaSyASXpcjSKFL5Q50cxYcyNc-xRlHTrFp5EA"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -32,11 +33,13 @@ def get_Lat_Long(zipcode):
 # Define the /search endpoint route
 @app.route('/search', methods=['GET'])
 def search_stations():
-    zipcode = request.args.get('zipcode')
-    latitude, longitude = get_Lat_Long(zipcode)
-    print('searching coordinates for ZIP', zipcode)
+    #zipcode = request.args.get('zipcode')
+    location_query = request.args.get('location') 
+    encoded_location = quote_plus(location_query)
+    latitude, longitude = get_Lat_Long(location_query)
+    print('searching coordinates for ZIP', location_query)
     print(latitude, longitude)
-    radius_meters = 30000  # Specify the radius in meters for your search
+    radius_meters = 2000  # Specify the radius in meters for your search
     if latitude is None or longitude is None:
         return jsonify({"error": "Unable to find location for the given zipcode"}), 400
     
@@ -53,7 +56,6 @@ def search_stations():
 
     # Perform the geo-spatial query to find stations within the specified radius
     result = collection.find({
-        "ZIP": zipcode,
         "location": {
             "$nearSphere": {
                 "$geometry": location,
